@@ -57,6 +57,13 @@ afterEach(async () => {
 });
 
 describe('local authoritative rooms', () => {
+  it('starts an unlimited room', async () => {
+    const service=await startRoomServer({port:0}); services.push(service);
+    const host=await new Peer(service.url).ready();
+    expect((await host.ask('create',{name:'無限房主',seats:2,maxRounds:0})).type).toBe('ack');
+    expect((await host.ask('start')).type).toBe('ack');
+    expect(host.snapshot!.game!.maxRounds).toBe(0);
+  });
   it('shares AI replies from authoritative public state without changing game version', async () => {
     const reply = vi.fn(async () => ({text:'我在城市裡等下一回合！',source:'ai' as const}));
     const {host,guest}=await setup({npcChat:{configured:true,reply,close(){}}});

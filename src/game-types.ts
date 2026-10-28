@@ -9,7 +9,7 @@ export interface Stock { id: string; name: string; price: number; previousPrice:
 export interface GameLog { id: number; round: number; text: string; }
 export interface GameState {
   version: 2; seed: string; rngState: number; players: Player[]; currentPlayer: number;
-  phase: 'roll' | 'moving' | 'action' | 'finished'; turn: number; round: number; maxRounds: number;
+  phase: 'roll' | 'moving' | 'action' | 'finished'; turn: number; round: number; /** 0 means unlimited rounds; last solvent player still wins. */ maxRounds: number;
   marketTick: number; stocks: Stock[]; tiles: Tile[]; log: GameLog[]; nextLogId: number;
   /** die is the total movement; dice contains each individual rolled face. */
   winner: string | null; die: number | null; dice: number[]; pendingSteps: number; nextDice: number | null;

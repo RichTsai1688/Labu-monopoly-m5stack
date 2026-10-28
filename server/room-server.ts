@@ -207,7 +207,7 @@ export async function startRoomServer(options: RoomServerOptions = {}) {
           const name = boundedName(request.name), theme = validTheme(request.theme);
           check([2, 3, 4].includes(request.seats), '房間必須為 2 至 4 席');
           const maxRounds = request.maxRounds ?? 20;
-          check(Number.isInteger(maxRounds) && maxRounds >= 1 && maxRounds <= 100, '回合數須為 1 至 100');
+          check(Number.isInteger(maxRounds) && maxRounds >= 0 && maxRounds <= 100, '回合數須為 0（無限）或 1 至 100');
           let code: string; do { code = randomBytes(6).toString('hex').toUpperCase(); } while (rooms.has(code));
           const seat: Seat = { id: 'player-0', name, theme, token: randomBytes(32).toString('base64url'), socket: null, disconnectTimer: null, pendingReclaim: false };
           const room: Room = { code, seats: request.seats, maxRounds, hostId: seat.id, members: [seat], game: null, version: 0, messages: createWelcomeMessages().filter(m => m.channel !== 'private'), timer: null, lastActivity: Date.now(), requests: new Set(), lastNpcAt: 0, lastNpcTurn: 0 };

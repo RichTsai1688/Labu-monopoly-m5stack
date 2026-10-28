@@ -85,7 +85,7 @@ function assertFinancialSafety(s: GameState) {
 }
 export function createGame(options: GameOptions = {}): GameState {
   const seats = options.seats ?? 4; assert([2, 3, 4].includes(seats), '玩家席位必須介於 2 至 4');
-  const maxRounds = options.maxRounds ?? 20; integer(maxRounds); assert(maxRounds <= 100, '最多 100 輪');
+  const maxRounds = options.maxRounds ?? 20; integer(maxRounds, 0); assert(maxRounds <= 100, '最多 100 輪');
   const configs = options.players ?? (options.humanNames ?? ['玩家']).map(name => ({ name, isNpc: false, theme: undefined }));
   assert(configs.length >= 1 && configs.length <= seats, '玩家數量必須介於 1 至房間席位數');
   configs.forEach(c => { assert(typeof c.name === 'string' && c.name.trim().length > 0 && c.name.length <= 24, '玩家名稱須為 1 至 24 字'); assert(c.theme === undefined || THEMES.includes(c.theme), '無效建築主題'); });
@@ -102,7 +102,7 @@ export function createGame(options: GameOptions = {}): GameState {
     currentPlayer: 0, phase: 'roll', turn: 1, round: 1, maxRounds, marketTick: 0, stocks, tiles, log: [], nextLogId: 1,
     winner: null, die: null, dice: [], pendingSteps: 0, nextDice: null, performedActions: [], auctionTileId: null, arrivalMessage: '歡迎來到玩具城市，擲骰開始冒險！', marketTrend: 0, trendSteps: 0,
   };
-  log(s, `${seats} 位玩家抵達玩具城市，本局共 ${maxRounds} 輪。`); return s;
+  log(s, maxRounds === 0 ? `${seats} 位玩家抵達玩具城市，本局為無限輪。` : `${seats} 位玩家抵達玩具城市，本局共 ${maxRounds} 輪。`); return s;
 }
 
 function finishGame(s: GameState) { s.phase = 'finished'; s.pendingSteps = 0; s.winner = getRankings(s)[0].id; log(s, `遊戲結束！${s.players.find(p => p.id === s.winner)!.name} 取得第一名。`); }
@@ -159,7 +159,7 @@ function settleCalendarRound(s: GameState) {
       log(s, `${stock.name} → ${p.name}的銀行存款：${formatMoney(income)}（${p.holdings[stock.id]} 張股票股利）。`);
     }
   });
-  if (s.round < s.maxRounds) {
+  if (s.maxRounds === 0 || s.round < s.maxRounds) {
     const next = gameCalendar(s.round + 1);
     log(s, `換季：第 ${next.year} 年${next.season}季，每季 2 輪。`);
   }
@@ -239,7 +239,7 @@ function useBank(s:GameState,p:Player) {
   if (!onBank) { assert((p.mobileBankUses ?? 0) < 3, '提款卡 3 次已用完，請停到銀行自動補滿'); p.mobileBankUses = (p.mobileBankUses ?? 0) + 1; }
 }
 function updatePropertyMarket(s:GameState) {
-  if (s.round % 2 !== 0 || s.round >= s.maxRounds) return;
+  if (s.round % 2 !== 0 || (s.maxRounds !== 0 && s.round >= s.maxRounds)) return;
   const changes = Array.from({length:DISTRICT_NAMES.length},(_,district)=>{ const n=hashSeed(`${s.seed}:${s.round}:${district}:housing`); return {district,percent:n%4===0 ? -(2+(n>>>4)%4) : 2+(n>>>4)%5}; });
   for(const tile of s.tiles) if(tile.type === 'property') {
     const base=900+tile.district*180+(tile.id%3)*70;
@@ -324,7 +324,7 @@ export function dispatch(state: GameState, action: GameAction): GameState {
     case 'finishTurn': {
       assert(s.phase === 'action', '完成移動後才能結束回合'); if (s.players.filter(other => !other.bankrupt).length <= 1) { finishGame(s); break; }
       let next = s.currentPlayer; do { next = (next + 1) % s.players.length; if (next === 0) { settleCalendarRound(s); updatePropertyMarket(s); s.round++; } } while (s.players[next].bankrupt);
-      if (s.round > s.maxRounds) { s.round = s.maxRounds; finishGame(s); break; }
+      if (s.maxRounds !== 0 && s.round > s.maxRounds) { s.round = s.maxRounds; finishGame(s); break; }
       s.currentPlayer = next; s.turn++; s.hazards = (s.hazards ?? []).filter(h => h.expiresTurn > s.turn && !s.players.find(p => p.id === h.ownerId)?.bankrupt); for (const tile of s.tiles) if ((tile.closedUntilTurn ?? 0) <= s.turn || tile.closedById === active(s).id || s.players.find(p => p.id === tile.closedById)?.bankrupt) { delete tile.closedUntilTurn; delete tile.closedById; } s.phase = 'roll'; s.die = null; s.dice = []; s.nextDice = null; s.performedActions = []; s.auctionTileId = null; s.arrivalMessage = `輪到 ${active(s).name} 擲骰。`; break;
     }
     default: throw new Error('未知操作');
@@ -392,8 +392,8 @@ export function deserializeGame(serialized: string): GameState {
   assert(s.version === 2 && typeof s.seed === 'string' && s.seed.length < 1000, '不支援此存檔版本');
   assert(Array.isArray(s.players) && s.players.length >= 2 && s.players.length <= 4, '玩家資料無效');
   assert(['roll', 'moving', 'action', 'finished'].includes(s.phase), '遊戲階段無效'); integer(s.currentPlayer, 0); assert(s.currentPlayer < s.players.length, '回合玩家無效');
-  for (const n of [s.rngState, s.turn, s.round, s.maxRounds, s.nextLogId]) integer(n); assert(s.rngState <= 4294967295 && s.maxRounds <= 100 && s.round <= s.maxRounds && s.turn <= 400, '回合資料無效');
-  integer(s.marketTick, 0); assert(s.marketTick <= 7200, '市場時間無效'); integer(s.pendingSteps, 0); assert(s.pendingSteps <= 18 && (s.phase === 'moving' ? s.pendingSteps > 0 && s.pendingSteps <= (s.die ?? 0) : s.pendingSteps === 0), '移動資料無效');
+  for (const n of [s.rngState, s.turn, s.round, s.nextLogId]) integer(n); integer(s.maxRounds, 0); assert(s.rngState <= 4294967295 && s.maxRounds <= 100 && (s.maxRounds === 0 || s.round <= s.maxRounds && s.turn <= 400), '回合資料無效');
+  integer(s.marketTick, 0); assert(s.maxRounds === 0 || s.marketTick <= 7200, '市場時間無效'); integer(s.pendingSteps, 0); assert(s.pendingSteps <= 18 && (s.phase === 'moving' ? s.pendingSteps > 0 && s.pendingSteps <= (s.die ?? 0) : s.pendingSteps === 0), '移動資料無效');
   assert(s.die === null || Number.isInteger(s.die) && s.die >= 0 && s.die <= 18, '骰子資料無效');
   assert(Array.isArray(s.dice) && s.dice.length <= 3 && s.dice.every(face => Number.isInteger(face) && face >= 1 && face <= 6) && (s.dice.length > 0 ? s.dice.reduce((sum, face) => sum + face, 0) === s.die : s.die === null || s.die === 0), '個別骰子資料無效');
   assert(s.nextDice === null || Number.isInteger(s.nextDice) && s.nextDice >= 1 && s.nextDice <= 6, '指定骰資料無效');
@@ -422,7 +422,7 @@ export function deserializeGame(serialized: string): GameState {
   const board = createGame({ seats: 2, seed: 'validation' }).tiles;
   assert(Array.isArray(s.tiles) && s.tiles.length === 48, '地圖資料無效');
   s.tiles.forEach((t, i) => { if (t.closedById !== undefined) assert(t.closedUntilTurn !== undefined && s.players.some(p => p.id === t.closedById && !p.bankrupt), '停業施放者無效'); if (t.closedUntilTurn !== undefined) { integer(t.closedUntilTurn); assert(t.type === 'property' && t.closedUntilTurn > s.turn && t.closedUntilTurn <= s.turn + s.players.length, '停業期限無效'); } const original = board[i]; assert(t.id === i && t.type === original.type && t.name === original.name && t.district === original.district && Number.isSafeInteger(t.price) && t.price >= Math.round(original.price*.5) && t.price <= original.price*3 && t.upgradeCost === original.upgradeCost, '地圖內容已損壞'); integer(t.level, 0); assert(t.level <= 3 && (t.ownerId === null || t.type === 'property' && s.players.some(p => p.id === t.ownerId && !p.bankrupt)) && (t.ownerId !== null || t.level === 0), '地產資料無效'); });
-  assert(Array.isArray(s.log) && s.log.length <= 250 && s.log.every(l => l && Number.isSafeInteger(l.id) && l.id > 0 && Number.isInteger(l.round) && l.round >= 1 && l.round <= s.maxRounds && typeof l.text === 'string' && l.text.length < 1000), '遊戲紀錄無效');
+  assert(Array.isArray(s.log) && s.log.length <= 250 && s.log.every(l => l && Number.isSafeInteger(l.id) && l.id > 0 && Number.isInteger(l.round) && l.round >= 1 && l.round <= s.round && typeof l.text === 'string' && l.text.length < 1000), '遊戲紀錄無效');
   assert(Array.isArray(s.performedActions) && s.performedActions.every(a => ['upgrade', 'station', 'shop', 'buyVehicle', 'amusement', 'auction', 'attack'].includes(a)) && new Set(s.performedActions).size === s.performedActions.length, '設施紀錄無效');
   assert(typeof s.arrivalMessage === 'string' && s.arrivalMessage.length < 1000, '訊息資料無效'); assert(s.auctionTileId === null || Number.isInteger(s.auctionTileId) && s.tiles[s.auctionTileId]?.type === 'property' && !s.tiles[s.auctionTileId].ownerId, '拍賣資料無效');
   assert(Number.isInteger(s.marketTrend) && [-10, 0, 10].includes(s.marketTrend) && Number.isInteger(s.trendSteps) && s.trendSteps >= 0 && s.trendSteps <= 12, '市場趨勢無效');

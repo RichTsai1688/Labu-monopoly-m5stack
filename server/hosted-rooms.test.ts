@@ -17,6 +17,16 @@ function fixture() {
   return { send, sql, writes: () => writes };
 }
 describe('persistent hosted rooms', () => {
+  it('starts an unlimited room and defaults other rooms to 20 rounds', async () => {
+    const f=fixture();
+    const a=await f.send({type:'create',name:'無限房主',seats:2,maxRounds:0});
+    const start=await f.send({type:'start',...a.session});
+    expect(start.snapshot.game.maxRounds).toBe(0);
+    const b=await f.send({type:'create',name:'標準房主',seats:2});
+    const defaultStart=await f.send({type:'start',...b.session});
+    expect(defaultStart.snapshot.game.maxRounds).toBe(20);
+    f.sql.close();
+  });
   it('lets another player trade only their own account without delaying dice movement',async()=>{
     const f=fixture(),a=await f.send({type:'create',name:'主人',seats:2});
     const b=await f.send({type:'join',name:'朋友',code:a.session.code});
