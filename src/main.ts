@@ -443,7 +443,7 @@ function renderSide() {
     };
   });
   $("#chat-launch").onclick = () => { setSideExpanded(!document.body.classList.contains("side-expanded")); renderChat(); };
-  $("#garage-launch").onclick = () => showVehicles(state.phase === "action" && state.tiles[current().position].type === "shop" && canAct(), roomClient ? Math.max(0, state.players.findIndex(p => p.id === room?.selfId)) : state.currentPlayer);
+  $("#garage-launch").onclick = () => showVehicles(false, roomClient ? Math.max(0, state.players.findIndex(p => p.id === room?.selfId)) : Math.max(0, state.players.findIndex(p => p.id === localSpeaker().id)));
   renderChat();
 }
 let dismissedDecision = '';
@@ -975,7 +975,7 @@ function showVehicles(store = false, index = state.currentPlayer) {
     modalHeader(
       "THE LITTLE MOTOR CLUB",
       store ? "交通工具展示間" : "我的玩具車庫",
-      `步行 1 顆 · 腳踏車／機車 2 顆 · 汽車 3 顆骰子`,
+      `${esc(p.name)} 的車庫 · 步行 1 顆 · 腳踏車／機車 2 顆 · 汽車 3 顆骰子`,
     ) +
       `<div class="garage-current"><span>目前交通工具</span><strong>${equipped ? esc(equipped.name) : "步行"} · ${getDiceCount(p)} 顆骰子</strong></div><div class="vehicle-grid">${VEHICLES.map(
         (v) => {
@@ -984,7 +984,7 @@ function showVehicles(store = false, index = state.currentPlayer) {
         },
       ).join(
         "",
-      )}</div>${!store ? `<button id="walk" class="secondary full" ${!editable || p.vehicleId === null || state.phase !== "roll" || p.jailTurns > 0 ? "disabled" : ""}>改為步行 · 1 顆骰子</button>` : ""}<p class="fine-print">每次到商店限購一款；購入後在自己的下一次擲骰前換乘。同骰數款式的差異為造型與價格。Tesla 車款為非官方遊戲玩具造型，金額為虛構遊戲價格。</p>`,
+      )}</div>${!store && editable && state.phase === "action" && state.tiles[p.position].type === "shop" ? '<button id="visit-showroom" class="primary full">前往交通工具展示間 →</button>' : ""}${!store ? `<button id="walk" class="secondary full" ${!editable || p.vehicleId === null || state.phase !== "roll" || p.jailTurns > 0 ? "disabled" : ""}>改為步行 · 1 顆骰子</button>` : ""}<p class="fine-print">每次到商店限購一款；購入後立即換乘，下次擲骰使用新交通工具的骰子數。可在自己的擲骰前切換車款。同骰數款式的差異為造型與價格。Tesla 車款為非官方遊戲玩具造型，金額為虛構遊戲價格。</p>`,
     true,
   );
   document.querySelectorAll<HTMLElement>("[data-buy-vehicle]").forEach(
@@ -1003,6 +1003,7 @@ function showVehicles(store = false, index = state.currentPlayer) {
         );
       }),
   );
+  if ($("#visit-showroom")) $("#visit-showroom").onclick = () => showVehicles(true, index);
   if (!store)
     $("#walk").onclick = () => {
       act({ type: "equipVehicle", vehicleId: null }, () =>

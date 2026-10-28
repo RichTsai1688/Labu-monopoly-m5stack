@@ -172,11 +172,11 @@ describe('transport and multiple dice', () => {
     let s = createGame({ seed: 'loaded-car' }); s.players[0].vehicles = ['city-car']; s.players[0].cards = ['loadedDice']; s = dispatch(s, { type: 'equipVehicle', vehicleId: 'city-car' }); s = dispatch(s, { type: 'useCard', card: 'loadedDice', value: 6 }); s = dispatch(s, { type: 'roll' });
     expect(s.dice).toHaveLength(3); expect(s.dice[0]).toBe(6); expect(s.die).toBeGreaterThanOrEqual(8); expect(s.die).toBeLessThanOrEqual(18); expect(s.nextDice).toBeNull();
   });
-  it('requires exact shop arrival and cash, charges once, and stores the vehicle without equipping mid-turn', () => {
+  it('requires exact shop arrival and cash, charges once, and immediately equips the vehicle', () => {
     expect(() => dispatch(onTile(3), { type: 'buyVehicle', vehicleId: 'bicycle' })).toThrow();
     const moving = onTile(7); moving.phase = 'moving'; moving.pendingSteps = 1; expect(() => dispatch(moving, { type: 'buyVehicle', vehicleId: 'bicycle' })).toThrow();
     const poor = onTile(7); poor.players[0].cash = 0; poor.players[0].deposit = 50000; expect(() => dispatch(poor, { type: 'buyVehicle', vehicleId: 'bicycle' })).toThrow('現金不足');
-    let s = onTile(7); s = dispatch(s, { type: 'buyVehicle', vehicleId: 'bicycle' }); expect(s.players[0].cash).toBe(9650); expect(s.players[0].deposit).toBe(2000); expect(s.players[0].vehicles).toEqual(['bicycle']); expect(s.players[0].vehicleId).toBeNull();
+    let s = onTile(7); s = dispatch(s, { type: 'buyVehicle', vehicleId: 'bicycle' }); expect(s.players[0].cash).toBe(9650); expect(s.players[0].deposit).toBe(2000); expect(s.players[0].vehicles).toEqual(['bicycle']); expect(s.players[0].vehicleId).toBe('bicycle'); expect(deserializeGame(serializeGame(s)).players[0].vehicleId).toBe('bicycle');
     expect(() => dispatch(s, { type: 'buyVehicle', vehicleId: 'bicycle' })).toThrow('已經擁有'); expect(() => dispatch(s, { type: 'buyVehicle', vehicleId: 'scooter' })).toThrow('本回合已使用');
     s.performedActions = []; expect(() => dispatch(s, { type: 'buyVehicle', vehicleId: 'bicycle' })).toThrow('已經擁有'); expect(() => dispatch(s, { type: 'buyVehicle', vehicleId: 'unknown' })).toThrow();
   });

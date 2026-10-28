@@ -284,8 +284,8 @@ export function dispatch(state: GameState, action: GameAction): GameState {
     case 'shop': at(s, 'shop'); assert(Object.hasOwn(CARD_PRICES, action.card), '無效道具'); once(s, 'shop'); assert(p.cards.length < HAND_LIMIT, '道具背包已滿'); spend(p, CARD_PRICES[action.card]); p.cards.push(action.card); log(s, `${p.name} → 道具商店：${formatMoney(CARD_PRICES[action.card])}（購買${CARD_NAMES[action.card]}）。`); break;
     case 'buyVehicle': {
       at(s, 'shop'); const vehicle = VEHICLES.find(v => v.id === action.vehicleId); assert(vehicle, '找不到此交通工具');
-      assert(!p.vehicles.includes(vehicle.id), '已經擁有此交通工具'); once(s, 'buyVehicle'); spend(p, vehicle.price); p.vehicles.push(vehicle.id);
-      log(s, `${p.name} → 車行：${formatMoney(vehicle.price)}（購買${vehicle.name}）；下次擲骰前可在車庫換乘。`); break;
+      assert(!p.vehicles.includes(vehicle.id), '已經擁有此交通工具'); once(s, 'buyVehicle'); spend(p, vehicle.price); p.vehicles.push(vehicle.id); p.vehicleId = vehicle.id;
+      log(s, `${p.name} → 車行：${formatMoney(vehicle.price)}（購買${vehicle.name}）；已立即換乘，下次擲骰使用 ${vehicle.diceCount} 顆骰子。`); break;
     }
     case 'equipVehicle': {
       assert(s.phase === 'roll' && p.jailTurns === 0, '只能在自由行動的擲骰前換乘');

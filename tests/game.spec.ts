@@ -62,12 +62,12 @@ test('bank deposits, withdrawals, trades, and invalid amounts use current prices
   await page.locator('#stock-qty').fill('4'); await page.locator('#stock-form button.primary').click(); const end = await saved(page); expect(end.players[0].holdings['stock-0']).toBe(6); expect(end.players[0].deposit).toBe(2500 - price * 6); expect(end.marketTick).toBe(initial.marketTick); expect(end.stocks).toEqual(initial.stocks);
 });
 
-test('buys a Tesla at the shop, equips it next turn, and rolls three dice through the UI', async ({ page }, testInfo) => {
+test('buys and immediately equips a Tesla at the shop, then rolls three dice through the UI', async ({ page }, testInfo) => {
   await resumeFixture(page, arrived(7)); await enableFast(page); await page.locator('[data-action="vehicles"]').click();
   await expect(page.locator('.vehicle-card')).toHaveCount(5); await page.locator('[data-buy-vehicle="tesla-model-3"]').click(); let s = await saved(page);
-  expect(s.players[0].vehicles).toEqual(['tesla-model-3']); expect(s.players[0].vehicleId).toBeNull(); expect(s.players[0].cash).toBe(10000 - VEHICLES.find(v => v.id === 'tesla-model-3')!.price);
+  expect(s.players[0].vehicles).toEqual(['tesla-model-3']); expect(s.players[0].vehicleId).toBe('tesla-model-3'); expect(s.players[0].cash).toBe(10000 - VEHICLES.find(v => v.id === 'tesla-model-3')!.price);
   await expect(page.locator('[data-buy-vehicle="tesla-model-y"]')).toBeDisabled(); await page.screenshot({ path: testInfo.outputPath('vehicle-showroom.png'), fullPage: true }); await page.getByRole('button', { name: '關閉視窗' }).click();
-  await page.locator('#turn-action').click(); await waitHuman(page); await page.locator('#garage-launch').click(); await page.locator('[data-equip-vehicle="tesla-model-3"]').click(); await expect(page.locator('.garage-current')).toContainText('3 顆骰子'); await page.getByRole('button', { name: '關閉視窗' }).click();
+  await page.locator('#turn-action').click(); await waitHuman(page); await page.locator('#garage-launch').click(); await expect(page.locator('[data-equip-vehicle="tesla-model-3"]')).toHaveText('正在使用'); await expect(page.locator('.garage-current')).toContainText('3 顆骰子'); await page.getByRole('button', { name: '關閉視窗' }).click();
   const before = await saved(page); await page.locator('#turn-action').click(); await finishMovement(page); s = await saved(page); expect(s.dice).toHaveLength(3); expect(s.marketTick - before.marketTick).toBe(s.dice.reduce((sum, die) => sum + die, 0));
 });
 
