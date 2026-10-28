@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.runtime/
+artifacts/
+playwright-report/
+test-results*/
+.env
+.env.*
+!.env.example
+.DS_Store
+tools/
+*.log
+
+# Separate Sites deployment checkout
+sites/
