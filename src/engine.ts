@@ -85,7 +85,7 @@ function assertFinancialSafety(s: GameState) {
 }
 export function createGame(options: GameOptions = {}): GameState {
   const seats = options.seats ?? 4; assert([2, 3, 4].includes(seats), '玩家席位必須介於 2 至 4');
-  const maxRounds = options.maxRounds ?? 12; integer(maxRounds); assert(maxRounds <= 100, '最多 100 輪');
+  const maxRounds = options.maxRounds ?? 20; integer(maxRounds); assert(maxRounds <= 100, '最多 100 輪');
   const configs = options.players ?? (options.humanNames ?? ['玩家']).map(name => ({ name, isNpc: false, theme: undefined }));
   assert(configs.length >= 1 && configs.length <= seats, '玩家數量必須介於 1 至房間席位數');
   configs.forEach(c => { assert(typeof c.name === 'string' && c.name.trim().length > 0 && c.name.length <= 24, '玩家名稱須為 1 至 24 字'); assert(c.theme === undefined || THEMES.includes(c.theme), '無效建築主題'); });
@@ -98,7 +98,7 @@ export function createGame(options: GameOptions = {}): GameState {
   });
   const stocks: Stock[] = STOCK_NAMES.map((name, i) => ({ id: `stock-${i}`, name, price: [30, 45, 55, 65, 85, 40][i], previousPrice: [30, 45, 55, 65, 85, 40][i], history: [[30, 45, 55, 65, 85, 40][i]], volatility: [20, 16, 18, 24, 38, 30][i] }));
   const s: GameState = {
-    version: 2, seed, rngState: hashSeed(seed), players: all.map((p, i) => ({ id: `player-${i}`, name: p.name.trim(), isNpc: !!p.isNpc, theme: p.theme ?? THEMES[i], color: COLORS[i], position: 0, cash: 4000, deposit: 2000, holdings: Object.fromEntries(stocks.map(st => [st.id, 0])), costBasis: Object.fromEntries(stocks.map(st => [st.id, 0])), realizedProfit: 0, dividendsReceived: 0, personality: (['balanced', 'cautious', 'balanced', 'bold'] as const)[i], cards: [], completedGoals: [], vehicles: [], vehicleId: null, jailTurns: 0, bankrupt: false })),
+    version: 2, seed, rngState: hashSeed(seed), players: all.map((p, i) => ({ id: `player-${i}`, name: p.name.trim(), isNpc: !!p.isNpc, theme: p.theme ?? THEMES[i], color: COLORS[i], position: 0, cash: 10000, deposit: 2000, holdings: Object.fromEntries(stocks.map(st => [st.id, 0])), costBasis: Object.fromEntries(stocks.map(st => [st.id, 0])), realizedProfit: 0, dividendsReceived: 0, personality: (['balanced', 'cautious', 'balanced', 'bold'] as const)[i], cards: [], completedGoals: [], vehicles: [], vehicleId: null, jailTurns: 0, bankrupt: false })),
     currentPlayer: 0, phase: 'roll', turn: 1, round: 1, maxRounds, marketTick: 0, stocks, tiles, log: [], nextLogId: 1,
     winner: null, die: null, dice: [], pendingSteps: 0, nextDice: null, performedActions: [], auctionTileId: null, arrivalMessage: '歡迎來到玩具城市，擲骰開始冒險！', marketTrend: 0, trendSteps: 0,
   };

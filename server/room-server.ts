@@ -206,7 +206,7 @@ export async function startRoomServer(options: RoomServerOptions = {}) {
           check(rooms.size < config.maxRooms, '本機房間已滿');
           const name = boundedName(request.name), theme = validTheme(request.theme);
           check([2, 3, 4].includes(request.seats), '房間必須為 2 至 4 席');
-          const maxRounds = request.maxRounds ?? 12;
+          const maxRounds = request.maxRounds ?? 20;
           check(Number.isInteger(maxRounds) && maxRounds >= 1 && maxRounds <= 100, '回合數須為 1 至 100');
           let code: string; do { code = randomBytes(6).toString('hex').toUpperCase(); } while (rooms.has(code));
           const seat: Seat = { id: 'player-0', name, theme, token: randomBytes(32).toString('base64url'), socket: null, disconnectTimer: null, pendingReclaim: false };

@@ -39,7 +39,7 @@ describe('hosted prank cards', () => {
       const version = f.edit(g => { g.phase = 'action'; g.players[0].position = g.tiles.find(t => t.type === 'shop')!.id; });
       const bought = await f.command({ type: 'shop', card }, version);
       expect(bought.error).toBeUndefined();
-      expect(bought.snapshot.game.players[0].cash).toBe(4000 - CARD_PRICES[card]);
+      expect(bought.snapshot.game.players[0].cash).toBe(10000 - CARD_PRICES[card]);
       expect(bought.snapshot.game.players[0].cards).toEqual([card]);
       const other = await f.send({ type: 'poll', ...f.guest });
       expect(other.snapshot.game).toEqual(bought.snapshot.game);
@@ -58,7 +58,7 @@ describe('hosted prank cards', () => {
       const action = { type: 'useCard', card: 'steal', targetId: f.guest.playerId, actorId: f.guest.playerId, amount: 999999 };
       const a = await f.command(action, version, f.host, { requestId });
       expect(a.error).toBeUndefined();
-      expect(a.snapshot.game.players.map((p: any) => p.cash)).toEqual([4300, 3700, 4000]);
+      expect(a.snapshot.game.players.map((p: any) => p.cash)).toEqual([10300, 9700, 10000]);
       expect(a.snapshot.game.players.map((p: any) => p.deposit)).toEqual([2000, 2000, 2000]);
       const b = await f.command(action, version, f.host, { requestId });
       expect(b.snapshot.game).toEqual(a.snapshot.game);
@@ -77,7 +77,7 @@ describe('hosted prank cards', () => {
       expect(result.error).toBeUndefined();
       const players = result.snapshot.game.players;
       expect(players[0].cards).toEqual([]); expect(players[1].cards).toEqual([]);
-      expect(players[1].cash).toBe(4000); expect(players[1].jailTurns).toBe(0);
+      expect(players[1].cash).toBe(10000); expect(players[1].jailTurns).toBe(0);
       expect(players[1].position).toBe(0);
       expect((await f.send({ type: 'poll', ...f.guest })).snapshot.game).toEqual(result.snapshot.game);
     } finally { f.sql.close(); }
@@ -95,7 +95,7 @@ describe('hosted prank cards', () => {
       expect(result.error).toBeUndefined();
       const g = result.snapshot.game;
       if (card === 'wanted') { expect(g.players[1].position).toBe(12); expect(g.players[1].wantedSkip).toBe(true); }
-      if (card === 'swap') { expect(g.players[0].position).toBe(7); expect(g.players[1].position).toBe(3); expect(g.players.map((p: any) => p.cash)).toEqual([4000, 4000, 4000]); }
+      if (card === 'swap') { expect(g.players[0].position).toBe(7); expect(g.players[1].position).toBe(3); expect(g.players.map((p: any) => p.cash)).toEqual([10000, 10000, 10000]); }
       if (card === 'shutdown') expect(g.tiles[tileId].closedUntilTurn).toBe(g.turn + 3);
       expect((await f.send({ type: 'poll', ...f.observer })).snapshot.game).toEqual(g);
     } finally { f.sql.close(); }
@@ -119,7 +119,7 @@ describe('hosted prank cards', () => {
       expect(g.players[1].position).toBe(tileId); expect(g.hazards).toEqual([]);
       expect(g.marketTick).toBe(placed.snapshot.game.marketTick + 1);
       if (card === 'roadblock') { expect(g.pendingSteps).toBe(0); expect(g.phase).toBe('action'); }
-      else { expect(g.pendingSteps).toBe(2); expect(g.players[0].cash).toBe(4150); expect(g.players[1].cash).toBe(3850); }
+      else { expect(g.pendingSteps).toBe(2); expect(g.players[0].cash).toBe(10150); expect(g.players[1].cash).toBe(9850); }
       expect((await f.send({ type: 'poll', ...f.observer }, 100900)).snapshot.game).toEqual(g);
     } finally { f.sql.close(); }
   });
@@ -135,7 +135,7 @@ describe('hosted prank cards', () => {
       });
       const result = await f.command({ type: 'useCard', card: 'steal', targetId: f.guest.playerId }, version);
       expect(result.error).toBeUndefined();
-      expect(result.snapshot.game.players[0].cash).toBe(4300);
+      expect(result.snapshot.game.players[0].cash).toBe(10300);
       expect((await f.send({ type: 'reconnect', ...f.guest })).snapshot.game).toEqual(result.snapshot.game);
     } finally { f.sql.close(); }
   });

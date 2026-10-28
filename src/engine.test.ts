@@ -34,8 +34,8 @@ describe('movement and market', () => {
     const movedA = walkTo(a, 3), movedB = walkTo(b, 3); expect(movedA.stocks).toEqual(movedB.stocks); expect(movedA.rngState).toBe(movedB.rngState);
   });
   it('pays one start salary on crossing and station teleports do not update stocks or pay salary', () => {
-    let s = walkTo(createGame(), 0); expect(s.players[0].cash).toBe(4800); expect(s.marketTick).toBe(1);
-    s = onTile(33); const stocks = structuredClone(s.stocks); s = dispatch(s, { type: 'station' }); expect(s.players[0].position).toBe(9); expect(s.marketTick).toBe(0); expect(s.stocks).toEqual(stocks); expect(s.players[0].cash).toBe(3900); expect(() => dispatch(s, { type: 'station' })).toThrow();
+    let s = walkTo(createGame(), 0); expect(s.players[0].cash).toBe(10800); expect(s.marketTick).toBe(1);
+    s = onTile(33); const stocks = structuredClone(s.stocks); s = dispatch(s, { type: 'station' }); expect(s.players[0].position).toBe(9); expect(s.marketTick).toBe(0); expect(s.stocks).toEqual(stocks); expect(s.players[0].cash).toBe(9900); expect(() => dispatch(s, { type: 'station' })).toThrow();
   });
   it('does not trigger banks or facilities simply passed during movement', () => {
     let s = createGame(); s.players[0].position = 2; s.phase = 'moving'; s.pendingSteps = 2; s.die = 2;
@@ -55,10 +55,10 @@ describe('bank settlement', () => {
   });
   it('moves funds and buys/sells at the current bank price without market drift', () => {
     let s = onTile(3); const wealth = getNetWorth(s, s.players[0]);
-    s = dispatch(s, { type: 'deposit', amount: 1000 }); expect(s.players[0].cash).toBe(3000); expect(s.players[0].deposit).toBe(3000);
+    s = dispatch(s, { type: 'deposit', amount: 1000 }); expect(s.players[0].cash).toBe(9000); expect(s.players[0].deposit).toBe(3000);
     s = dispatch(s, { type: 'buyStock', stockId: 'stock-0', quantity: 10 }); expect(s.players[0].deposit).toBe(2700); expect(s.players[0].holdings['stock-0']).toBe(10); expect(s.players[0].costBasis['stock-0']).toBe(300);
     s = dispatch(s, { type: 'sellStock', stockId: 'stock-0', quantity: 4 }); expect(s.players[0].deposit).toBe(2820); expect(s.players[0].costBasis['stock-0']).toBe(180);
-    s = dispatch(s, { type: 'withdraw', amount: 820 }); expect(s.players[0].cash).toBe(3820); expect(s.marketTick).toBe(0); expect(getNetWorth(s, s.players[0])).toBe(wealth);
+    s = dispatch(s, { type: 'withdraw', amount: 820 }); expect(s.players[0].cash).toBe(9820); expect(s.marketTick).toBe(0); expect(getNetWorth(s, s.players[0])).toBe(wealth);
     expect(() => dispatch(s, { type: 'sellStock', stockId: 'stock-0', quantity: 7 })).toThrow('持股不足');
   });
   it('tracks realized gains and exact aggregate cost through partial sales', () => {
@@ -86,10 +86,10 @@ describe('property and required payments', () => {
   });
   it('draws only the missing rent from deposits and transfers exactly the amount paid', () => {
     const s = createGame({ seats: 2 }); s.tiles[1].ownerId = 'player-1'; s.players[0].cash = 10; const rent = getRent(s.tiles[1]); const moved = walkTo(s, 1);
-    expect(moved.players[0].cash).toBe(0); expect(moved.players[0].deposit).toBe(2000 - rent + 10); expect(moved.players[1].cash).toBe(4000 + rent); expect(moved.players[0].bankrupt).toBe(false);
+    expect(moved.players[0].cash).toBe(0); expect(moved.players[0].deposit).toBe(2000 - rent + 10); expect(moved.players[1].cash).toBe(10000 + rent); expect(moved.players[0].bankrupt).toBe(false);
   });
   it('automatically uses rent protection without deducting funds', () => {
-    const s = createGame(); s.tiles[1].ownerId = 'player-1'; s.players[0].cards.push('rentShield'); const moved = walkTo(s, 1); expect(moved.players[0].cash).toBe(4000); expect(moved.players[0].cards).toEqual([]);
+    const s = createGame(); s.tiles[1].ownerId = 'player-1'; s.players[0].cards.push('rentShield'); const moved = walkTo(s, 1); expect(moved.players[0].cash).toBe(10000); expect(moved.players[0].cards).toEqual([]);
   });
   it('liquidates stocks then property for insolvent payments, avoiding negative money', () => {
     const s = createGame(); s.tiles[1].ownerId = 'player-1'; s.tiles[1].level = 3; s.tiles[2].ownerId = 'player-0'; s.players[0].cash = 0; s.players[0].deposit = 0; s.players[0].holdings['stock-0'] = 1; s.players[0].costBasis['stock-0'] = 30;
@@ -97,7 +97,7 @@ describe('property and required payments', () => {
   });
   it('ends immediately when the last rival bankrupts; creditor receives only available funds', () => {
     const s = createGame({ seats: 2 }); s.tiles[1].ownerId = 'player-1'; s.players[0].cash = 10; s.players[0].deposit = 0; const moved = walkTo(s, 1);
-    expect(moved.players[0].bankrupt).toBe(true); expect(moved.players[1].cash).toBe(4010); expect(moved.phase).toBe('finished'); expect(moved.winner).toBe('player-1'); expect(() => dispatch(moved, { type: 'finishTurn' })).toThrow();
+    expect(moved.players[0].bankrupt).toBe(true); expect(moved.players[1].cash).toBe(10010); expect(moved.phase).toBe('finished'); expect(moved.winner).toBe('player-1'); expect(() => dispatch(moved, { type: 'finishTurn' })).toThrow();
   });
 });
 
@@ -117,11 +117,11 @@ describe('facilities and turn progression', () => {
   });
   it('a jail card or cash bail releases before a roll', () => {
     const s = createGame(); s.players[0].position = 12; s.players[0].jailTurns = 2; s.players[0].cards.push('jailFree');
-    expect(dispatch(s, { type: 'useCard', card: 'jailFree' }).players[0].jailTurns).toBe(0); const bailed = dispatch(s, { type: 'bail' }); expect(bailed.players[0].cash).toBe(3700); expect(dispatch(bailed, { type: 'roll' }).phase).toBe('moving');
+    expect(dispatch(s, { type: 'useCard', card: 'jailFree' }).players[0].jailTurns).toBe(0); const bailed = dispatch(s, { type: 'bail' }); expect(bailed.players[0].cash).toBe(9700); expect(dispatch(bailed, { type: 'roll' }).phase).toBe('moving');
   });
   it('validates auction minimums, settles one winner, and cannot replay', () => {
     let s = onTile(36); s.auctionTileId = 1; s.players[1].cash = 0; const bid = Math.floor(s.tiles[1].price * .65);
-    expect(() => dispatch(s, { type: 'auction', bid: bid - 1 })).toThrow(); s = dispatch(s, { type: 'auction', bid }); expect(s.tiles[1].ownerId).toBe('player-0'); expect(s.players[0].cash).toBe(4000 - bid); expect(() => dispatch(s, { type: 'auction', bid })).toThrow();
+    expect(() => dispatch(s, { type: 'auction', bid: bid - 1 })).toThrow(); s = dispatch(s, { type: 'auction', bid }); expect(s.tiles[1].ownerId).toBe('player-0'); expect(s.players[0].cash).toBe(10000 - bid); expect(() => dispatch(s, { type: 'auction', bid })).toThrow();
   });
   it('counts complete rounds and evaluates remaining stock at final market price', () => {
     let s = createGame({ seats: 2, maxRounds: 1 }); s.phase = 'action'; s.players[1].holdings['stock-0'] = 100; s.players[1].costBasis['stock-0'] = 3000;
@@ -176,7 +176,7 @@ describe('transport and multiple dice', () => {
     expect(() => dispatch(onTile(3), { type: 'buyVehicle', vehicleId: 'bicycle' })).toThrow();
     const moving = onTile(7); moving.phase = 'moving'; moving.pendingSteps = 1; expect(() => dispatch(moving, { type: 'buyVehicle', vehicleId: 'bicycle' })).toThrow();
     const poor = onTile(7); poor.players[0].cash = 0; poor.players[0].deposit = 50000; expect(() => dispatch(poor, { type: 'buyVehicle', vehicleId: 'bicycle' })).toThrow('現金不足');
-    let s = onTile(7); s = dispatch(s, { type: 'buyVehicle', vehicleId: 'bicycle' }); expect(s.players[0].cash).toBe(3650); expect(s.players[0].deposit).toBe(2000); expect(s.players[0].vehicles).toEqual(['bicycle']); expect(s.players[0].vehicleId).toBeNull();
+    let s = onTile(7); s = dispatch(s, { type: 'buyVehicle', vehicleId: 'bicycle' }); expect(s.players[0].cash).toBe(9650); expect(s.players[0].deposit).toBe(2000); expect(s.players[0].vehicles).toEqual(['bicycle']); expect(s.players[0].vehicleId).toBeNull();
     expect(() => dispatch(s, { type: 'buyVehicle', vehicleId: 'bicycle' })).toThrow('已經擁有'); expect(() => dispatch(s, { type: 'buyVehicle', vehicleId: 'scooter' })).toThrow('本回合已使用');
     s.performedActions = []; expect(() => dispatch(s, { type: 'buyVehicle', vehicleId: 'bicycle' })).toThrow('已經擁有'); expect(() => dispatch(s, { type: 'buyVehicle', vehicleId: 'unknown' })).toThrow();
   });
@@ -189,7 +189,7 @@ describe('transport and multiple dice', () => {
     const afterMove = structuredClone(s); afterMove.phase = 'action'; expect(() => dispatch(afterMove, { type: 'equipVehicle', vehicleId: 'bicycle' })).toThrow();
   });
   it('values garages at half price and liquidates a mounted vehicle before property when cash runs out', () => {
-    const s = createGame(); s.players[0].vehicles = ['city-car']; s.players[0].vehicleId = 'city-car'; expect(getNetWorth(s, s.players[0])).toBe(6900);
+    const s = createGame(); s.players[0].vehicles = ['city-car']; s.players[0].vehicleId = 'city-car'; expect(getNetWorth(s, s.players[0])).toBe(12900);
     s.players[0].cash = 0; s.players[0].deposit = 0; s.tiles[1].ownerId = 'player-1'; s.tiles[1].level = 3; s.tiles[2].ownerId = 'player-0'; const rent = getRent(s.tiles[1]); const moved = walkTo(s, 1);
     expect(moved.players[0].vehicles).toEqual([]); expect(moved.players[0].vehicleId).toBeNull(); expect(moved.players[0].cash).toBe(900 - rent); expect(moved.players[0].bankrupt).toBe(false); expect(moved.tiles[2].ownerId).toBe('player-0');
   });

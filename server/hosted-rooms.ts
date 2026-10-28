@@ -93,7 +93,7 @@ export async function handleHostedRooms(request: Request, db: RoomDatabase, now 
     if (input.type === 'create') {
       const playerName = name(input.name), playerTheme = theme(input.theme);
       check([2, 3, 4].includes(input.seats), '房間必須為 2 至 4 席');
-      const maxRounds = input.maxRounds ?? 12; check([6, 10, 12, 20, 24].includes(maxRounds), '回合選項無效');
+      const maxRounds = input.maxRounds ?? 20; check([6, 10, 12, 20, 24].includes(maxRounds), '回合選項無效');
       // Creation IDs are random client UUIDs and serve as recovery secrets for a lost create response.
       check(input.requestId.length >= 32, '建立房間請使用隨機 UUID 操作識別碼');
       await db.prepare('DELETE FROM multiplayer_rooms WHERE expires_at <= ?').bind(now).run();

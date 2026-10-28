@@ -136,7 +136,7 @@ let state: GameState = createGame({
   seed: Date.now(),
   seats: 4,
   humanNames: ["你"],
-  maxRounds: 12,
+  maxRounds: 20,
 });
 let started = false,
   paused = false,
@@ -1316,7 +1316,7 @@ function showRoomDialog() {
       "邀請朋友，一起蓋城市",
       hostedTrial ? "建立房間 → 分享邀請連結 → 朋友入位，空位由 NPC 補齊。" : "本機房間測試 · 兩個瀏覽器可加入同一局。啟動方式：npm run play",
     ) +
-      `<form id="room-form"><label class="form-label" for="room-name">你的名字</label><input id="room-name" class="full" maxlength="24" value="${esc(current().name)}" required><label class="form-label" for="room-code">加入房間（已有邀請碼時填寫）</label><input id="room-code" class="full" maxlength="32" value="${esc(invitedRoom)}" placeholder="輸入邀請碼"><div class="form-grid"><label>房間席位<select id="room-seats"><option value="4">4 人</option><option value="3">3 人</option><option value="2">2 人</option></select></label><label>遊戲輪數<select id="room-rounds"><option value="12">12 輪</option><option value="6">6 輪</option><option value="10">10 輪</option><option value="20">20 輪</option><option value="24">24 輪</option></select></label></div><button class="primary full" id="room-submit">建立 / 加入房間 →</button></form>${saved ? '<button class="secondary full" id="room-reconnect">接回上一次房間 →</button>' : ""}<p class="fine-print">${hostedTrial ? "分享連結後，朋友輸入名字即可入位；房主按開始遊戲後，由 NPC 補齊空位。Labu 使用內建遊戲對話，不讀取私人訊息。" : "預設服務只監聽此電腦。跨裝置或公開網路需另行設定主機、HTTPS 與權限。本版不連接真實 Labu 帳號，也不發送 LINE 邀請。"}</p>`,
+      `<form id="room-form"><label class="form-label" for="room-name">你的名字</label><input id="room-name" class="full" maxlength="24" value="${esc(current().name)}" required><label class="form-label" for="room-code">加入房間（已有邀請碼時填寫）</label><input id="room-code" class="full" maxlength="32" value="${esc(invitedRoom)}" placeholder="輸入邀請碼"><div class="form-grid"><label>房間席位<select id="room-seats"><option value="4">4 人</option><option value="3">3 人</option><option value="2">2 人</option></select></label><label>遊戲輪數<select id="room-rounds"><option value="12">12 輪</option><option value="6">6 輪</option><option value="10">10 輪</option><option value="20" selected>20 輪</option><option value="24">24 輪</option></select></label></div><button class="primary full" id="room-submit">建立 / 加入房間 →</button></form>${saved ? '<button class="secondary full" id="room-reconnect">接回上一次房間 →</button>' : ""}<p class="fine-print">${hostedTrial ? "分享連結後，朋友輸入名字即可入位；房主按開始遊戲後，由 NPC 補齊空位。Labu 使用內建遊戲對話，不讀取私人訊息。" : "預設服務只監聽此電腦。跨裝置或公開網路需另行設定主機、HTTPS 與權限。本版不連接真實 Labu 帳號，也不發送 LINE 邀請。"}</p>`,
   );
   $("#room-form").onsubmit = async (e) => {
     e.preventDefault();
@@ -1414,7 +1414,7 @@ function showLobby() {
   } catch {}
   $("#lobby").classList.add("visible");
   $("#lobby").innerHTML =
-    `<section class="lobby-card"><span class="eyebrow">WELCOME TO YOUR LITTLE WORLD</span><h2>把夢想，<br>蓋成一座<span>城市。</span></h2><p>擲出骰子、買下街角的小屋，<br>和朋友一起，成為玩具城市的主人。</p><div class="lobby-character-row">${portraits.map((image, i) => `<img src="${image}" alt="${["小熊", "兔兔", "Labu", "企鵝"][i]}">`).join("")}</div><div class="lobby-features"><span>48 格冒險</span><span>6 間銀行</span><span>每步股票行情</span></div><form id="lobby-form"><div class="form-grid"><label>玩家席位<select id="seat-count"><option value="4">4 人城市</option><option value="3">3 人城市</option><option value="2">2 人城市</option></select></label><label>本機真人<select id="human-count"><option value="1">1 人 + NPC</option><option value="2">2 人同桌</option><option value="3">3 人同桌</option><option value="4">4 人同桌</option></select></label><label>你的名字<input id="player-name" maxlength="16" value="你" required></label><label>遊戲長度<select id="round-count"><option value="12">12 輪 · 標準</option><option value="6">6 輪 · 快速</option><option value="10">10 輪 · 短局</option><option value="20">20 輪 · 長局</option><option value="24">24 輪 · 悠閒</option></select></label></div><label class="form-label">你的建築風格</label><div class="theme-choices">${Object.entries(
+    `<section class="lobby-card"><span class="eyebrow">WELCOME TO YOUR LITTLE WORLD</span><h2>把夢想，<br>蓋成一座<span>城市。</span></h2><p>擲出骰子、買下街角的小屋，<br>和朋友一起，成為玩具城市的主人。</p><div class="lobby-character-row">${portraits.map((image, i) => `<img src="${image}" alt="${["小熊", "兔兔", "Labu", "企鵝"][i]}">`).join("")}</div><div class="lobby-features"><span>48 格冒險</span><span>6 間銀行</span><span>每步股票行情</span></div><form id="lobby-form"><div class="form-grid"><label>玩家席位<select id="seat-count"><option value="4">4 人城市</option><option value="3">3 人城市</option><option value="2">2 人城市</option></select></label><label>本機真人<select id="human-count"><option value="1">1 人 + NPC</option><option value="2">2 人同桌</option><option value="3">3 人同桌</option><option value="4">4 人同桌</option></select></label><label>你的名字<input id="player-name" maxlength="16" value="你" required></label><label>遊戲長度<select id="round-count"><option value="12">12 輪 · 短局</option><option value="6">6 輪 · 快速</option><option value="10">10 輪 · 短局</option><option value="20" selected>20 輪 · 標準</option><option value="24">24 輪 · 悠閒</option></select></label></div><label class="form-label">你的建築風格</label><div class="theme-choices">${Object.entries(
       themeNames,
     )
       .map(

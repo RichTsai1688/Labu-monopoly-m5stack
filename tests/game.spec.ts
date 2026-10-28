@@ -37,8 +37,8 @@ async function finishMovement(page: Page) { await expect.poll(async () => (await
 
 test('starts one human plus NPCs with 48 tiles, six banks, and a read-only market', async ({ page }, testInfo) => {
   await page.goto('/'); await page.locator('#player-name').fill('小城建築師'); await page.locator('#round-count').selectOption('6'); await page.locator('.start-game').click();
-  await expect(page.locator('.player-card')).toHaveCount(4); const s = await saved(page); expect(s.players.filter(p => p.isNpc)).toHaveLength(3); expect(s.players[0].cash).toBe(4000);
-  await expect(page.locator('.player-card').first()).toContainText('400 萬元'); expect(await diagnostics(page)).toMatchObject({ tiles: 48, banks: 6 });
+  await expect(page.locator('.player-card')).toHaveCount(4); const s = await saved(page); expect(s.players.filter(p => p.isNpc)).toHaveLength(3); expect(s.players[0].cash).toBe(10000);
+  await expect(page.locator('.player-card').first()).toContainText('1,000 萬元'); expect(await diagnostics(page)).toMatchObject({ tiles: 48, banks: 6 });
   await page.locator('#view-menu summary').click(); await page.locator('#board-list').click(); await expect(page.locator('[data-directory]')).toHaveCount(48); await expect(page.locator('.board-directory .bank')).toHaveCount(6); await page.getByRole('button', { name: '關閉視窗' }).click();
   await page.locator('#market-open').click(); await expect(page.locator('#modal')).toContainText('停在銀行才可交易'); await expect(page.locator('#stock-form button')).toBeDisabled(); await page.getByRole('button', { name: '關閉視窗' }).click();
   await page.screenshot({ path: testInfo.outputPath('desktop-city.png'), fullPage: true });
@@ -54,8 +54,8 @@ test('a real UI roll moves one square per market update and resumes exactly afte
 test('bank deposits, withdrawals, trades, and invalid amounts use current prices without extra market ticks', async ({ page }) => {
   const initial = arrived(3); const price = initial.stocks[0].price; await resumeFixture(page, initial);
   await page.locator('[data-action="bank"]').click(); await page.locator('#bank-amount').fill('100'); await page.locator('#bank-form button.primary').click();
-  expect((await saved(page)).players[0]).toMatchObject({ cash: 3000, deposit: 3000 });
-  await page.locator('#mode-withdraw').click(); await page.locator('#bank-amount').fill('50'); await page.locator('#bank-form button.primary').click(); expect((await saved(page)).players[0]).toMatchObject({ cash: 3500, deposit: 2500 });
+  expect((await saved(page)).players[0]).toMatchObject({ cash: 9000, deposit: 3000 });
+  await page.locator('#mode-withdraw').click(); await page.locator('#bank-amount').fill('50'); await page.locator('#bank-form button.primary').click(); expect((await saved(page)).players[0]).toMatchObject({ cash: 9500, deposit: 2500 });
   const beforeInvalid = await saved(page); await page.locator('#bank-amount').fill('99999'); await page.locator('#bank-form button.primary').click(); await expect(page.locator('#toast')).toContainText('存款不足'); expect(await saved(page)).toEqual(beforeInvalid);
   await page.locator('#bank-stocks').click(); await page.locator('#stock-qty').fill('10'); await page.locator('#stock-form button.primary').click(); expect((await saved(page)).players[0].holdings['stock-0']).toBe(10);
   await page.locator('#stock-sell').click(); await page.locator('#stock-qty').fill('11'); await page.locator('#stock-form button.primary').click(); await expect(page.locator('#toast')).toContainText('持股不足');
@@ -65,7 +65,7 @@ test('bank deposits, withdrawals, trades, and invalid amounts use current prices
 test('buys a Tesla at the shop, equips it next turn, and rolls three dice through the UI', async ({ page }, testInfo) => {
   await resumeFixture(page, arrived(7)); await enableFast(page); await page.locator('[data-action="vehicles"]').click();
   await expect(page.locator('.vehicle-card')).toHaveCount(5); await page.locator('[data-buy-vehicle="tesla-model-3"]').click(); let s = await saved(page);
-  expect(s.players[0].vehicles).toEqual(['tesla-model-3']); expect(s.players[0].vehicleId).toBeNull(); expect(s.players[0].cash).toBe(4000 - VEHICLES.find(v => v.id === 'tesla-model-3')!.price);
+  expect(s.players[0].vehicles).toEqual(['tesla-model-3']); expect(s.players[0].vehicleId).toBeNull(); expect(s.players[0].cash).toBe(10000 - VEHICLES.find(v => v.id === 'tesla-model-3')!.price);
   await expect(page.locator('[data-buy-vehicle="tesla-model-y"]')).toBeDisabled(); await page.screenshot({ path: testInfo.outputPath('vehicle-showroom.png'), fullPage: true }); await page.getByRole('button', { name: '關閉視窗' }).click();
   await page.locator('#turn-action').click(); await waitHuman(page); await page.locator('#garage-launch').click(); await page.locator('[data-equip-vehicle="tesla-model-3"]').click(); await expect(page.locator('.garage-current')).toContainText('3 顆骰子'); await page.getByRole('button', { name: '關閉視窗' }).click();
   const before = await saved(page); await page.locator('#turn-action').click(); await finishMovement(page); s = await saved(page); expect(s.dice).toHaveLength(3); expect(s.marketTick - before.marketTick).toBe(s.dice.reduce((sum, die) => sum + die, 0));
