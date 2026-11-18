@@ -25,7 +25,7 @@ npm run test:e2e    # Playwright 瀏覽器測試，需安裝 Chrome
 
 ## 學生專題：搖動 M5Stack 擲骰
 
-目標是用 M5Stack 的加速度感測器辨識搖動，讓遊戲執行一次擲骰。**目前尚未接上硬體**；作業分解、建議架構和驗收條件見 [M5Stack 整合指南](docs/M5STACK_DICE.md)。
+遊戲可透過桌面 Chrome／Edge 的 USB Web Serial 接收 M5Stack 搖動事件；標題列 🎲 按鈕可連線，未接裝置時也能照常使用畫面擲骰。Arduino 韌體範例、使用限制和硬體驗收步驟見 [M5Stack 整合指南](docs/M5STACK_DICE.md)。韌體範例需依實際型號調整閾值，尚未在所有 M5Stack 型號實機驗證。
 
 ## 主要程式
 

@@ -3614,6 +3614,7 @@ body {
 .side-panel .chat-layout { min-height: 0; }
 .side-panel .chat-messages { min-height: 60px; overscroll-behavior: contain; }
 .side-panel .chat-message p { font-size: 13px; color: #294f43; background: rgb(255 255 255 / 72%); white-space: pre-wrap; }
+.icon-button.m5-connected { background: #dff3d9; border-color: #9dcf9a; box-shadow: inset 0 0 0 1px #fff; }
 .side-panel .from-player p { background: rgb(217 241 231 / 83%); }
 .side-panel .chat-subtabs button, .side-panel .chat-quick button { font-size: 11px; color: #355e50; }
 .side-panel .chat-quick { flex-wrap: wrap; }

@@ -56,6 +56,7 @@ import type { GameState, GameAction, Card } from "./game-types";
 import { ToyCity } from "./city";
 import { GameAudio } from "./audio";
 import { GameMusic } from "./music";
+import { ShakeLineDecoder, ShakeRollGate } from "./m5stack";
 import musicUrl from "./assets/audio/toy-city.mp3?url";
 import { CityModelAssets } from "./model-assets";
 import {
@@ -160,6 +161,19 @@ let roomClient: RoomClient | null = null,
   room: RoomSnapshot | null = null,
   roomSession: RoomSession | null = null,
   networkConnected = false;
+interface M5SerialPort {
+  readable: ReadableStream<Uint8Array> | null;
+  open(options: { baudRate: number }): Promise<void>;
+  close(): Promise<void>;
+}
+interface M5SerialApi {
+  requestPort(): Promise<M5SerialPort>;
+}
+let m5Port: M5SerialPort | null = null;
+let m5Reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+let m5ConnectPending = false;
+const m5ShakeDecoder = new ShakeLineDecoder();
+const m5ShakeGate = new ShakeRollGate();
 let offlineBeforeRoom: {
   state: GameState;
   started: boolean;
@@ -172,7 +186,7 @@ const audio = new GameAudio();
 const music = new GameMusic(musicUrl);
 const app = $("#app");
 app.innerHTML = `
-<header class="app-header"><a class="brand" href="#" aria-label="玩具城市首頁"><div class="toy-logo"><img class="brand-logo" src="${logoArt}" alt="玩具城市"><small>48 格環城線 · LABU</small></div></a><button class="calendar-badge" id="round" aria-label="遊戲日曆"></button><div class="header-center"><span class="status-dot"></span> ${hostedTrial ? "線上玩具城市" : "本機離線版"} <span class="divider">/</span> 和朋友，蓋一座夢想城市</div><div class="header-actions"><details id="finance-menu"><summary class="icon-button" aria-label="提款卡與股票交易">💳</summary><div class="finance-menu-options"><button id="mobile-market">股票買進／賣出</button><button id="mobile-bank">💳 提款卡 · 存款／提款</button></div></details><button class="text-button invite-button" id="room-open">邀請好友</button><button class="icon-button" id="sound" title="開啟音效" aria-label="開啟音效">♪</button><button class="icon-button" id="help" title="遊戲規則" aria-label="遊戲規則">?</button><button class="icon-button" id="garage-launch" aria-label="車庫與買車" title="車庫與買車">🚘</button><button class="icon-button chat-launch" id="chat-launch" aria-label="開啟聊天" aria-expanded="false" title="同桌聊天">💬<span id="chat-unread" hidden>❗️</span></button><button class="text-button" id="settings">設定</button></div></header>
+<header class="app-header"><a class="brand" href="#" aria-label="玩具城市首頁"><div class="toy-logo"><img class="brand-logo" src="${logoArt}" alt="玩具城市"><small>48 格環城線 · LABU</small></div></a><button class="calendar-badge" id="round" aria-label="遊戲日曆"></button><div class="header-center"><span class="status-dot"></span> ${hostedTrial ? "線上玩具城市" : "本機離線版"} <span class="divider">/</span> 和朋友，蓋一座夢想城市</div><div class="header-actions"><details id="finance-menu"><summary class="icon-button" aria-label="提款卡與股票交易">💳</summary><div class="finance-menu-options"><button id="mobile-market">股票買進／賣出</button><button id="mobile-bank">💳 提款卡 · 存款／提款</button></div></details><button class="text-button invite-button" id="room-open">邀請好友</button><button class="icon-button" id="sound" title="開啟音效" aria-label="開啟音效">♪</button><button class="icon-button" id="help" title="遊戲規則" aria-label="遊戲規則">?</button><button class="icon-button" id="m5-connect" title="連接 M5Stack" aria-label="連接 M5Stack 搖動骰子">🎲</button><button class="icon-button" id="garage-launch" aria-label="車庫與買車" title="車庫與買車">🚘</button><button class="icon-button chat-launch" id="chat-launch" aria-label="開啟聊天" aria-expanded="false" title="同桌聊天">💬<span id="chat-unread" hidden>❗️</span></button><button class="text-button" id="settings">設定</button></div></header>
 <section id="players" class="player-strip" aria-label="玩家資產"></section>
 <main class="game-layout"><section class="world-panel"><div class="world-heading"><div><span class="eyebrow">BUILD A LITTLE WONDER</span><h1>你的城市，你的冒險<span>。</span></h1></div></div><div id="world" aria-label="48格玩具城市3D棋盤"><div class="world-loading">正在組裝玩具城市…</div></div><div class="world-tools"><details id="view-menu" class="view-menu"><summary class="glass-button">🗺 視角</summary><div class="view-options"><button id="reset-view" class="glass-button">${icon("map")} 全圖</button><button id="follow-view" class="glass-button">角色近景</button><button id="board-list" class="glass-button">48 格地圖</button></div></details><span class="world-hint">拖曳旋轉 · 滾輪縮放 · 點選地塊</span></div><div id="dice-reveal" class="dice-reveal" role="status" hidden></div><section id="public-events" class="public-events" aria-label="公開遊戲事件" aria-live="polite"></section><div id="turn-card" class="turn-card"></div></section>
 <aside class="side-panel" aria-label="城市與聊天選單"><nav class="side-tabs"><button data-panel="chat" class="active">同桌聊天 <span class="tiny-dot"></span></button><button id="side-collapse" aria-expanded="false" aria-controls="side-content" aria-label="展開城市與聊天選單">⌃</button></nav><div id="side-content"></div></aside></main>
@@ -230,6 +244,102 @@ function toast(text: string) {
   el.dataset.timer = String(
     window.setTimeout(() => el.classList.remove("visible"), 3200),
   );
+}
+function updateM5Button() {
+  const button = $<HTMLButtonElement>("#m5-connect");
+  button.title = m5Port ? "M5Stack 已連線 · 點擊中斷" : "連接 M5Stack";
+  button.setAttribute(
+    "aria-label",
+    m5Port ? "中斷 M5Stack 搖動骰子" : "連接 M5Stack 搖動骰子",
+  );
+  button.classList.toggle("m5-connected", Boolean(m5Port));
+}
+function handleM5Shake() {
+  const turn = `${room?.code ?? "offline"}:${state.seed}:${state.turn}:${current().id}`;
+  m5ShakeGate.tryRoll(
+    turn,
+    canAct() && state.phase === "roll" && !$<HTMLDialogElement>("#modal").open,
+    () => act({ type: "roll" }, undefined, () => m5ShakeGate.reset()),
+  );
+}
+async function readM5Port(
+  port: M5SerialPort,
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+) {
+  const textDecoder = new TextDecoder();
+  try {
+    while (m5Port === port) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      const shakes = m5ShakeDecoder.push(textDecoder.decode(value, { stream: true }));
+      for (let i = 0; i < shakes; i++) handleM5Shake();
+    }
+  } catch (error) {
+    if (m5Port === port)
+      toast(`M5Stack 讀取失敗：${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    const disconnectedUnexpectedly = m5Port === port;
+    reader.releaseLock();
+    if (m5Reader === reader) {
+      m5Reader = null;
+      m5Port = null;
+      updateM5Button();
+    }
+    m5ShakeDecoder.reset();
+    try {
+      await port.close();
+    } catch (error) {
+      toast(`無法關閉 M5Stack 連線：${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (disconnectedUnexpectedly) toast("M5Stack 已斷線；仍可使用畫面上的擲骰按鈕。");
+  }
+}
+async function toggleM5Connection() {
+  if (m5Port) {
+    const reader = m5Reader;
+    m5Port = null;
+    m5Reader = null;
+    m5ShakeDecoder.reset();
+    updateM5Button();
+    if (reader) void reader.cancel().catch((error) => toast(`中斷 M5Stack 失敗：${String(error)}`));
+    toast("M5Stack 已中斷；仍可使用畫面上的擲骰按鈕。");
+    return;
+  }
+  if (m5ConnectPending) return;
+  const serial = (navigator as Navigator & { serial?: M5SerialApi }).serial;
+  if (!serial) {
+    toast("此瀏覽器不支援 Web Serial，請使用桌面版 Chrome 或 Edge。");
+    return;
+  }
+  m5ConnectPending = true;
+  const button = $<HTMLButtonElement>("#m5-connect");
+  button.disabled = true;
+  let port: M5SerialPort | null = null;
+  try {
+    port = await serial.requestPort();
+    await port.open({ baudRate: 115200 });
+    if (!port.readable) throw new Error("序列埠沒有可讀取的資料流");
+    m5Port = port;
+    const reader = port.readable.getReader();
+    m5Reader = reader;
+    m5ShakeDecoder.reset();
+    updateM5Button();
+    toast("M5Stack 已連線；輪到你擲骰時搖動裝置。");
+    void readM5Port(port, reader);
+  } catch (error) {
+    if (port && m5Port !== port) {
+      try {
+        await port.close();
+      } catch (closeError) {
+        toast(`關閉未完成的 M5Stack 連線失敗：${String(closeError)}`);
+      }
+    }
+    toast(`無法連接 M5Stack：${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    m5ConnectPending = false;
+    button.disabled = false;
+  }
 }
 function showModal(html: string, wide = false) {
   modalRevision++;
@@ -531,7 +641,7 @@ function renderDecision() {
       }),
   );
 }
-function roomCommand(action: GameAction, after?: () => void) {
+function roomCommand(action: GameAction, after?: () => void, onError?: () => void) {
   const client = roomClient,
     revision = modalRevision;
   if (!client) return;
@@ -546,12 +656,15 @@ function roomCommand(action: GameAction, after?: () => void) {
         after?.();
     })
     .catch((e) => {
-      if (roomClient === client) toast(e.message);
+      if (roomClient === client) {
+        toast(e.message);
+        onError?.();
+      }
     });
 }
-function act(action: GameAction, after?: () => void) {
+function act(action: GameAction, after?: () => void, onError?: () => void) {
   if (roomClient) {
-    roomCommand(action, after);
+    roomCommand(action, after, onError);
     return;
   }
   try {
@@ -569,6 +682,7 @@ function act(action: GameAction, after?: () => void) {
     schedule();
   } catch (e) {
     toast(e instanceof Error ? e.message : "操作失敗，請再試一次。");
+    onError?.();
     schedule();
   }
 }
@@ -1247,6 +1361,7 @@ function restoreOffline() {
   roomClient = null;
   room = null;
   networkConnected = false;
+  m5ShakeGate.reset();
   client?.close();
   if (previous) {
     state = previous.state;
@@ -1257,6 +1372,7 @@ function restoreOffline() {
   schedule();
 }
 function connectRoom() {
+  m5ShakeGate.reset();
   if (!roomClient) offlineBeforeRoom = { state, started, paused };
   paused = true;
   clearTimeout(timer);
@@ -1476,6 +1592,7 @@ function showLobby() {
   };
 }
 function start() {
+  m5ShakeGate.reset();
   try { sessionStorage.setItem("labu-active-game", "offline"); } catch {}
   started = true;
   paused = false;
@@ -1486,6 +1603,7 @@ function start() {
   schedule();
 }
 $("#room-open").onclick = showRoomDialog;
+$("#m5-connect").onclick = () => { void toggleM5Connection(); };
 function toggleSound() {
   muted = !audio.toggle();
   $("#sound").textContent = muted ? "♪" : "♫";
@@ -1583,6 +1701,10 @@ async function restoreOnLoad() {
 }
 void restoreOnLoad();
 const onPageHide = () => {
+  const reader = m5Reader;
+  m5Reader = null;
+  m5Port = null;
+  if (reader) void reader.cancel().catch((error) => console.warn("M5Stack 讀取停止失敗。", error));
   save();
   clearTimeout(timer);
   clearTimeout(Number($("#toast")?.dataset.timer));

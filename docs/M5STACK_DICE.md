@@ -1,28 +1,92 @@
-# M5Stack 搖動擲骰：學生整合任務
+# M5Stack 搖動擲骰
 
-目前遊戲還沒有 M5Stack 連線功能。這份文件是開發計畫，不表示硬體已測試完成。
+遊戲可透過 USB Web Serial 接收 M5Stack 傳來的 `SHAKE` 訊息。遊戲端仍負責擲骰點數與規則；裝置只報告搖動，不會決定點數。硬體範例尚未在所有 M5Stack 型號上實機驗證，請先確認型號具有支援的 IMU。
 
-## 目標與流程
+## 使用方式
 
-1. 確認實際 M5Stack 型號是否內建 IMU，或需外接加速度感測器；安裝對應開發環境與函式庫。
-2. 定期讀取三軸加速度，偵測明顯的搖動。設定閾值、消除重複觸發，靜止後才允許下一次搖動；閾值與時間應以實機調校。
-3. 裝置透過選定的連線方式傳出「搖動」事件，由使用者操作的遊戲客戶端轉成擲骰請求。
-4. 只有自己的回合、處於可擲骰狀態且連線正常時才送出一次 `roll`；其他狀態顯示原因。骰子數仍由交通工具決定，點數由遊戲規則產生。
-5. 斷線時保留原有按鈕；重新連線後不重送舊搖動事件。
+1. 在 M5Stack 的 Arduino IDE 專案安裝 M5Unified，將下方範例燒錄至支援的 M5Stack。
+2. 以 USB 將裝置接到執行遊戲的電腦，使用桌面版 Chrome 或 Edge 開啟遊戲。Web Serial 需要 HTTPS 或 localhost；瀏覽器會要求使用者明確選取序列埠。
+3. 按遊戲標題列的 🎲 按鈕，選擇 M5Stack 序列埠。序列速度為 115200 baud。
+4. 輪到自己且遊戲可擲骰時，搖動 M5Stack；其他回合、移動中、等待落地操作或遊戲結束時，搖動不會產生遊戲動作。
+5. 一回合內最多接受一次硬體擲骰。連線按鈕可中斷裝置；斷線時仍可使用遊戲原有的畫面擲骰按鈕。
 
-## 建議開發順序
+此方式以 USB Serial 為傳輸，不是 BLE。連接失敗時請檢查資料線是否支援資料傳輸、序列埠是否被 Arduino Serial Monitor 等程式占用，以及瀏覽器權限。
 
-- **第一階段：感測器**：先在序列埠顯示加速度並確認實際型號與座標、單位；例如支援 M5Unified 的機種可參考[官方 IMU 文件](https://docs.m5stack.com/en/arduino/m5unified/imu_class)與 `M5.Imu.getImuData()`。不同型號的 API 與 IMU 可能不同。
-- **第二階段：傳輸**：先選擇實驗環境。電腦端可評估 USB Web Serial 或 BLE Web Bluetooth，兩者均受瀏覽器與 HTTPS/localhost 限制；手機尤其需要先確認支援狀況。也可設計同網路的配對中介服務，但需要自行實作身分驗證與安全傳輸。參考 [Web Serial](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API)、[Web Bluetooth](https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API)。
-- **第三階段：串接遊戲**：先找 `src/main.ts` 的 `canAct()`、`act()`、`#turn-action` 與 `src/engine.ts` 的 `roll` 動作。讓硬體觸發共用同一合法擲骰流程，勿用裝置直接決定或覆寫骰點，也不要讓搖動在抵達後誤觸「結束回合」。
-- **第四階段：多人驗證**：多人走 `src/network.ts` 的 `RoomClient.command()`，房間服務驗證玩家身分、回合與狀態；多人骰點由伺服器規則決定。裝置應配對到正確玩家，而非讓所有玩家的裝置都能操作同一個席位。
+## M5Unified 範例韌體
 
-## 驗收清單
+以下範例以加速度相鄰樣本的變化偵測搖動。搖動後必須穩定一段時間才重新待命，並設冷卻時間避免一次動作重複送出。`SHAKE_DELTA` 與靜止時間須依裝置型號及實際手感調校；請先用 Serial Monitor 確認裝置確實輸出 `SHAKE`，再關閉 Serial Monitor 連線遊戲。
 
-- 一次有效搖動只擲一次；持續晃動、背景噪聲與斷線重連不重複觸發。
-- 非本人回合、移動動畫中、等待選項或遊戲結束時不擲骰，也不自動結束回合。
-- 步行、機車／腳踏車、汽車分別使用遊戲既有的骰子數；多人狀態在所有玩家畫面一致。
-- 裝置斷線仍可使用螢幕按鈕；重新配對後可繼續遊玩。
-- 測試至少包含感測器閾值與去彈跳、回合權限、重複訊息、離線及多人流程，再用實際 M5Stack、目標手機及瀏覽器驗證。
+```cpp
+#include <M5Unified.h>
+#include <cmath>
 
-不要把房間憑證、Wi-Fi 密碼或 API 金鑰寫入公開程式碼。若未來使用網路中介，應加入裝置配對、驗證、加密與速率限制；在教學環境先以本機或隔離網路驗證。
+constexpr float SHAKE_DELTA = 12.0f;
+constexpr float QUIET_DELTA = 2.5f;
+constexpr uint32_t QUIET_MS = 600;
+constexpr uint32_t COOLDOWN_MS = 800;
+
+float previousX = 0;
+float previousY = 0;
+float previousZ = 0;
+bool hasPrevious = false;
+bool armed = true;
+uint32_t quietSince = 0;
+uint32_t lastShakeAt = 0;
+
+void setup() {
+  M5.begin();
+  Serial.begin(115200);
+  if (!M5.Imu.isEnabled()) {
+    Serial.println("IMU unavailable");
+  }
+}
+
+void loop() {
+  M5.update();
+  const auto imu = M5.Imu.getImuData();
+  const float x = imu.accel.x;
+  const float y = imu.accel.y;
+  const float z = imu.accel.z;
+  const uint32_t now = millis();
+
+  if (hasPrevious) {
+    const float dx = x - previousX;
+    const float dy = y - previousY;
+    const float dz = z - previousZ;
+    const float delta = sqrtf(dx * dx + dy * dy + dz * dz);
+
+    if (armed && delta >= SHAKE_DELTA && now - lastShakeAt >= COOLDOWN_MS) {
+      Serial.println("SHAKE");
+      lastShakeAt = now;
+      armed = false;
+      quietSince = 0;
+    } else if (!armed && delta <= QUIET_DELTA) {
+      if (quietSince == 0) quietSince = now;
+      if (now - quietSince >= QUIET_MS) armed = true;
+    } else {
+      quietSince = 0;
+    }
+  }
+
+  previousX = x;
+  previousY = y;
+  previousZ = z;
+  hasPrevious = true;
+  delay(20);
+}
+```
+
+若 IMU 初始化失敗，請確認實際型號及其 IMU 支援狀況；不同 M5Stack 型號的感測器和座標方向可能不同。若太容易觸發，調高 `SHAKE_DELTA` 或延長 `QUIET_MS`；若很難觸發，先確認序列輸出及加速度變化，再小幅調低閾值。
+
+## 遊戲端防重複與回合權限
+
+- 序列輸入只接受完整的 `SHAKE` 行，可處理分段抵達的資料。
+- 每個遊戲回合只接受一次搖動事件；僅在 `canAct()` 為真且階段為 `roll` 時，呼叫與畫面按鈕相同的 `roll` 動作。
+- 多人房仍由房間伺服器驗證玩家、回合和骰點；不是目前操作者的搖動不會送出命令。
+- 中斷連線不會停用畫面擲骰按鈕；重連不會重播之前的序列資料。
+
+## 瀏覽器支援與隱私
+
+Web Serial 需要支援該 API 的桌面 Chrome／Edge 與安全來源（HTTPS 或 localhost）；瀏覽器必須在使用者按下連線按鈕後才能顯示序列埠選擇器。手機瀏覽器的支援情形不同，請先確認實際裝置。遊戲不會自動選取、掃描或保存序列埠；未連接時不影響一般遊玩。
+
+本功能只有本機 USB 序列資料，不使用 Wi-Fi、雲端或裝置憑證。若要改用 BLE 或網路中介，需另行設計配對、驗證與傳輸安全，不能直接把房間憑證或金鑰寫入公開程式碼。
